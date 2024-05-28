@@ -15,10 +15,12 @@ import com.google.api.services.sheets.v4.Sheets;
 import com.google.api.services.sheets.v4.SheetsScopes;
 import org.springframework.stereotype.Component;
 
+import java.awt.*;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.net.URI;
 import java.security.GeneralSecurityException;
 import java.util.Arrays;
 import java.util.List;
@@ -62,7 +64,47 @@ public class GoogleApiConfig {
                 .setAccessType("offline")
                 .build();
         LocalServerReceiver receiver = new LocalServerReceiver.Builder().setPort(8888).build();
-        return new AuthorizationCodeInstalledApp(flow, receiver).authorize("user");
+
+
+        AuthorizationCodeInstalledApp.Browser browser = url -> {
+            try {
+                if (Desktop.isDesktopSupported()) {
+                    Desktop.getDesktop().browse(new URI(url));
+                } else {
+                    // Fall back to command-line browsers if Desktop is not supported
+                    String os = System.getProperty("os.name").toLowerCase();
+                    Runtime runtime = Runtime.getRuntime();
+                    if (os.contains("win")) {
+                        runtime.exec("rundll32 url.dll,FileProtocolHandler " + url);
+                    } else if (os.contains("mac")) {
+                        runtime.exec("open " + url);
+                    } else if (os.contains("nix") || os.contains("nux")) {
+                        String[] browsers = {"xdg-open", "google-chrome", "firefox"};
+                        boolean success = false;
+                        for (String browse : browsers) {
+                            if (!success) {
+                                try {
+                                    runtime.exec(new String[]{browse, url});
+                                    success = true;
+                                } catch (Exception e) {
+                                    // Do nothing, try the next browser
+                                }
+                            }
+                        }
+                        if (!success) {
+                            throw new UnsupportedOperationException("Cannot open browser");
+                        }
+                    } else {
+                        throw new UnsupportedOperationException("Cannot open browser");
+                    }
+                }
+            } catch (Exception e) {
+                System.out.println("Please open the following address in your browser:");
+                System.out.println("  " + url);
+            }
+        };
+
+        return new AuthorizationCodeInstalledApp(flow, receiver, browser).authorize("user");
     }
 
 
